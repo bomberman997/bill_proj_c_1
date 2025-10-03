@@ -129,5 +129,5 @@ int create_db_header(struct dbheader_t **headerOut) {
     h->filesize = (unsigned int)sizeof(struct dbheader_t);  // <-- NO htonl
 
     *headerOut = h;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
