@@ -10,18 +10,29 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
+    // 1. Validate all pointer inputs.
     if (!dbhdr || !employees || !addstring) {
         return STATUS_ERROR;
     }
 
-    // Create a writable copy of the input string because strtok modifies it.
-    // Passing a read-only string from argv to strtok causes a segfault.
+    // --- START FIX ---
+    // 2. Add defensive check for the count. The design requires that the caller
+    //    (main.c) increments the count *before* calling this function. If the
+    //    count is 0, accessing employees[count - 1] would be employees[-1],
+    //    causing a guaranteed segmentation fault. This check prevents that crash.
+    if (dbhdr->count == 0) {
+        return STATUS_ERROR;
+    }
+    // --- END FIX ---
+
+    // 3. Create a writable copy for strtok, which modifies its input string.
     char *addstring_copy = strdup(addstring);
     if (addstring_copy == NULL) {
         perror("strdup");
         return STATUS_ERROR;
     }
 
+    // 4. Parse the copied string.
     char *name = strtok(addstring_copy, ",");
     if (name == NULL) {
         free(addstring_copy);
@@ -40,21 +51,20 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
         return STATUS_ERROR;
     }
 
-    // main() increments the count *before* calling, so the new employee is at the last index.
+    // 5. Get a pointer to the new employee slot. This is now safe.
     struct employee_t *new_employee = &employees[dbhdr->count - 1];
 
-    // Safely copy the parsed data, ensuring null termination.
+    // 6. Safely copy the data into the struct.
     strncpy(new_employee->name, name, NAME_LEN - 1);
-    new_employee->name[NAME_LEN - 1] = '\0';
+    new_employee->name[NAME_LEN - 1] = '\0'; // Ensure null termination
 
     strncpy(new_employee->address, address, ADDRESS_LEN - 1);
-    new_employee->address[ADDRESS_LEN - 1] = '\0';
+    new_employee->address[ADDRESS_LEN - 1] = '\0'; // Ensure null termination
 
     new_employee->hours = atoi(hours_str);
 
-    // Free the memory allocated by strdup.
+    // 7. Free the memory allocated by strdup.
     free(addstring_copy);
-
     return STATUS_SUCCESS;
 }
 
@@ -63,7 +73,6 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     if (fd < 0) return STATUS_ERROR;
 
     unsigned short count = dbhdr->count;
-
     if (count == 0) {
         *employeesOut = NULL;
         return STATUS_SUCCESS;
@@ -92,31 +101,34 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-// Changed to return int to match test harness, and added defensive null-termination.
 int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (!dbhdr) {
         return STATUS_ERROR;
     }
 
     unsigned short count = dbhdr->count;
-    if (count == 0 || !employees) {
-        return STATUS_SUCCESS;
+    
+    // --- START FIX ---
+    // Add robust check: A non-zero count with a NULL employee list is an
+    // invalid state that would cause a crash in the loop below.
+    if (count > 0 && !employees) {
+        return STATUS_ERROR;
+    }
+    // --- END FIX ---
+    
+    if (count == 0) {
+        return STATUS_SUCCESS; // Nothing to list.
     }
 
-    // --- START FIX ---
-    // The test harness may pass employee data with strings that are not
-    // null-terminated. This loop makes the function "defensive" by ensuring
-    // a null terminator exists at the end of the buffer before printing.
     for (unsigned short i = 0; i < count; i++) {
+        // Defensively ensure null-termination before printing.
         employees[i].name[NAME_LEN - 1] = '\0';
         employees[i].address[ADDRESS_LEN - 1] = '\0';
         printf("%s,%s,%u\n", employees[i].name, employees[i].address, employees[i].hours);
     }
-    // --- END FIX ---
     
     return STATUS_SUCCESS;
 }
-
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (fd < 0 || !dbhdr) return STATUS_ERROR;
@@ -139,7 +151,6 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     return STATUS_SUCCESS;
 }
 
-
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (fd < 0) { return STATUS_ERROR; }
 
@@ -150,7 +161,7 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (read(fd, header, sizeof *header) != (ssize_t)sizeof *header) { perror("read"); free(header); return STATUS_ERROR; }
 
     if (header->version != 1) { free(header); return STATUS_ERROR; }
-    if (header->magic   != HEADER_MAGIC) { free(header); return STATUS_ERROR; }
+    if (header->magic != HEADER_MAGIC) { free(header); return STATUS_ERROR; }
 
     struct stat st = {0};
     if (fstat(fd, &st) == -1) { perror("fstat"); free(header); return STATUS_ERROR; }
@@ -170,9 +181,9 @@ int create_db_header(struct dbheader_t **headerOut) {
     struct dbheader_t *h = calloc(1, sizeof *h);
     if (!h) return STATUS_ERROR;
 
-    h->magic    = HEADER_MAGIC;
-    h->version  = 1;
-    h->count    = 0;
+    h->magic = HEADER_MAGIC;
+    h->version = 1;
+    h->count = 0;
     h->filesize = (unsigned int)sizeof(struct dbheader_t);
 
     *headerOut = h;
