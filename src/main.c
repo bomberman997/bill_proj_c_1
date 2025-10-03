@@ -14,61 +14,62 @@ void print_usage(char *argv[]) {
   return;
 }
 
-
 int main(int argc, char *argv[]) {
-	int c = 0;
+  int c = 0;
   char *filepath = NULL;
   bool newfile = false;
   int dbfd = -1;
   struct dbheader_t *dbhdr = NULL;
+  struct employee_t *employees = NULL;  // ✅ placeholder until read_employees is implemented
 
-	while ((c = getopt(argc, argv, "nf:")) != -1) {
-		switch(c) {
-			case 'n':
-            newfile = true;
-            break;
+  while ((c = getopt(argc, argv, "nf:")) != -1) {
+    switch(c) {
+      case 'n':
+        newfile = true;
+        break;
       case 'f':
-          filepath = optarg;
-          break;
+        filepath = optarg;
+        break;
       case '?':
-          printf("Unknown Option- %c\n", c);
-          break;
+        printf("Unknown Option- %c\n", c);
+        break;
       default:
         return -1;
-		}
-	}
+    }
+  }
 
   if (filepath == NULL){
     printf("Filepath is a required argument\n");
     print_usage(argv);
-
     return 0;
-
   }
 
   if (newfile) {
     dbfd = create_db_file(filepath);
     if (dbfd == STATUS_ERROR){
       printf("Unable to create database file\n");
-      return -1;}
+      return -1;
+    }
     if (create_db_header(dbfd, &dbhdr) == STATUS_ERROR){
       printf("Failed to create the database header\n");
       return -1;
     }
-
-    } else {
-      dbfd = open_db_file(filepath);
-      if (dbfd == STATUS_ERROR){
-        printf("Unable to open database file\n");
-        return -1;
-      }
-      if (validate_db_header(dbfd, &dbhdr) == STATUS_ERROR){
-        printf("Failed to validate_db_header");
-        return -1;
+  } else {
+    dbfd = open_db_file(filepath);
+    if (dbfd == STATUS_ERROR){
+      printf("Unable to open database file\n");
+      return -1;
     }
+    if (validate_db_header(dbfd, &dbhdr) == STATUS_ERROR){
+      printf("Failed to validate_db_header");
+      return -1;
     }
+  }
 
+  // (Optional later) read_employees(dbfd, dbhdr, &employees);
 
-  output_file(dbfd, dbhdr);
+  // ✅ now matches the prototype in include/parse.h
+  output_file(dbfd, dbhdr, employees);
   return 0;
 }
+
