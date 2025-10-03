@@ -10,35 +10,57 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-    // The employee array has already been resized in main(). 
-    // The new employee will be at the last index.
-    struct employee_t *new_employee = &employees[dbhdr->count - 1];
+    // --- START FIX ---
 
-    // Use strtok to parse the "Name,Address,Hours" string
-    char *name = strtok(addstring, ",");
+    // 1. Validate all pointer inputs to prevent segfaults from NULL dereferencing.
+    if (!dbhdr || !employees || !addstring) {
+        return STATUS_ERROR;
+    }
+
+    // 2. Create a writable copy of addstring because strtok modifies its input.
+    //    Passing a string literal (like from argv) to strtok causes a segfault.
+    char *addstring_copy = strdup(addstring);
+    if (addstring_copy == NULL) {
+        perror("strdup");
+        return STATUS_ERROR;
+    }
+
+    // 3. Parse the copied string.
+    char *name = strtok(addstring_copy, ",");
     if (name == NULL) {
+        free(addstring_copy);
         return STATUS_ERROR;
     }
 
     char *address = strtok(NULL, ",");
     if (address == NULL) {
+        free(addstring_copy);
         return STATUS_ERROR;
     }
 
     char *hours_str = strtok(NULL, ",");
     if (hours_str == NULL) {
+        free(addstring_copy);
         return STATUS_ERROR;
     }
 
-    // Safely copy the parsed strings into the new employee struct
-    strncpy(new_employee->name, name, NAME_LEN -1);
+    // The logic in main.c increments the count *before* calling this function,
+    // so the new employee belongs at the last index (count - 1).
+    struct employee_t *new_employee = &employees[dbhdr->count - 1];
+
+    // 4. Safely copy the data, ensuring null termination.
+    strncpy(new_employee->name, name, NAME_LEN - 1);
     new_employee->name[NAME_LEN - 1] = '\0';
 
-    strncpy(new_employee->address, address, ADDRESS_LEN-1);
+    strncpy(new_employee->address, address, ADDRESS_LEN - 1);
     new_employee->address[ADDRESS_LEN - 1] = '\0';
 
-    // Convert the hours string to an integer
     new_employee->hours = atoi(hours_str);
+
+    // 5. Free the memory allocated by strdup.
+    free(addstring_copy);
+
+    // --- END FIX ---
 
     return STATUS_SUCCESS;
 }
@@ -49,13 +71,11 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 
     unsigned short count = dbhdr->count;
 
-    // No employees? return NULL but success.
     if (count == 0) {
         *employeesOut = NULL;
         return STATUS_SUCCESS;
     }
 
-    // Seek to start of employee records (immediately after header).
     if (lseek(fd, (off_t)sizeof(struct dbheader_t), SEEK_SET) == (off_t)-1) {
         perror("lseek");
         return STATUS_ERROR;
@@ -68,7 +88,6 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
         return STATUS_ERROR;
     }
 
-    // Read all employees in one go; the test harness expects host-order structs.
     ssize_t got = read(fd, buf, bytes);
     if (got != (ssize_t)bytes) {
         perror("read employees");
@@ -80,6 +99,7 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
+// Ensure the function returns int to match the test's expectations.
 int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (!dbhdr) return STATUS_ERROR;
 
@@ -98,8 +118,6 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     if (fd < 0 || !dbhdr) return STATUS_ERROR;
 
     uint16_t realcount = dbhdr->count;
-
-    // Keep everything in HOST order for the file (what the tests expect)
     struct dbheader_t wire = *dbhdr;
     wire.filesize = sizeof(struct dbheader_t) + sizeof(struct employee_t) * realcount;
 
@@ -109,7 +127,6 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     if (!employees || realcount == 0) return STATUS_SUCCESS;
 
     for (int i = 0; i < realcount; i++) {
-        // Write employees as-is (HOST order)
         if (write(fd, &employees[i], sizeof employees[i]) != (ssize_t)sizeof employees[i]) {
             perror("write employee");
             return STATUS_ERROR;
@@ -120,23 +137,21 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
 
 
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
-    if (fd < 0) { printf("Got a bad FD from user\n"); return STATUS_ERROR; }
+    if (fd < 0) { return STATUS_ERROR; }
 
     struct dbheader_t *header = calloc(1, sizeof *header);
-    if (!header) { printf("Malloc failed create db header\n"); return STATUS_ERROR; }
+    if (!header) { return STATUS_ERROR; }
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); free(header); return STATUS_ERROR; }
     if (read(fd, header, sizeof *header) != (ssize_t)sizeof *header) { perror("read"); free(header); return STATUS_ERROR; }
 
-    // HOST order checks
-    if (header->version != 1) { printf("Improper header version\n"); free(header); return STATUS_ERROR; }
-    if (header->magic   != HEADER_MAGIC) { printf("Improper header magic\n"); free(header); return STATUS_ERROR; }
+    if (header->version != 1) { free(header); return STATUS_ERROR; }
+    if (header->magic   != HEADER_MAGIC) { free(header); return STATUS_ERROR; }
 
     struct stat st = {0};
     if (fstat(fd, &st) == -1) { perror("fstat"); free(header); return STATUS_ERROR; }
 
     if (header->filesize != (unsigned int)st.st_size) {
-        printf("Corrupted database (filesize mismatch)\n");
         free(header);
         return STATUS_ERROR;
     }
