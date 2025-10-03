@@ -70,7 +70,6 @@ int main(int argc, char *argv[]) {
 
   // ✅ now matches the prototype in include/parse.h
   // output_file(dbfd, dbhdr, employees);
-  struct employee_t *employees = NULL;// Place holder until read_employees added 
   output_file(dbfd,dbhdr,employees);
 
   return 0;
