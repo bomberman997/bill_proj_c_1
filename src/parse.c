@@ -93,30 +93,26 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     *employeesOut = buf;
     return STATUS_SUCCESS;
 }
-
 int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (!dbhdr) {
         return STATUS_ERROR;
     }
 
     unsigned short count = dbhdr->count;
-    // The original code here was correct. If count is 0, we simply do nothing.
     if (count == 0 || !employees) {
         return STATUS_SUCCESS;
     }
 
     for (unsigned short i = 0; i < count; i++) {
-        // --- FIX 2: Prevent printf from reading out of bounds ---
-        // The test harness may create employee structs in memory without null-terminating
-        // the strings. This simple action prevents a segfault inside printf.
-        employees[i].name[NAME_LEN - 1] = '\0';
-        employees[i].address[ADDRESS_LEN - 1] = '\0';
-        printf("%s,%s,%u\n", employees[i].name, employees[i].address, employees[i].hours);
+        // Use precision specifiers to limit output, don't modify memory
+        printf("%.*s,%.*s,%u\n", 
+               NAME_LEN, employees[i].name,
+               ADDRESS_LEN, employees[i].address,
+               employees[i].hours);
     }
     
     return STATUS_SUCCESS;
 }
-
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (fd < 0 || !dbhdr) return STATUS_ERROR;
 
