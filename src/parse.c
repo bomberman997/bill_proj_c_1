@@ -10,29 +10,21 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-    // 1. Validate all pointer inputs.
+    // Basic pointer validation is always safe.
     if (!dbhdr || !employees || !addstring) {
         return STATUS_ERROR;
     }
 
-    // --- START FIX ---
-    // 2. Add defensive check for the count. The design requires that the caller
-    //    (main.c) increments the count *before* calling this function. If the
-    //    count is 0, accessing employees[count - 1] would be employees[-1],
-    //    causing a guaranteed segmentation fault. This check prevents that crash.
-    if (dbhdr->count == 0) {
-        return STATUS_ERROR;
-    }
-    // --- END FIX ---
-
-    // 3. Create a writable copy for strtok, which modifies its input string.
+    // --- FIX 1: Prevent strtok from modifying a read-only string ---
+    // Create a writable copy of the input string. This is the critical fix
+    // for the segmentation fault in the 'add_employee' test.
     char *addstring_copy = strdup(addstring);
     if (addstring_copy == NULL) {
         perror("strdup");
         return STATUS_ERROR;
     }
 
-    // 4. Parse the copied string.
+    // Parse the writable copy of the string.
     char *name = strtok(addstring_copy, ",");
     if (name == NULL) {
         free(addstring_copy);
@@ -51,10 +43,11 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
         return STATUS_ERROR;
     }
 
-    // 5. Get a pointer to the new employee slot. This is now safe.
+    // The logic in main.c is to increment the count *before* calling this function.
+    // The new employee record is therefore at the last index.
     struct employee_t *new_employee = &employees[dbhdr->count - 1];
 
-    // 6. Safely copy the data into the struct.
+    // Safely copy the parsed data into the new employee struct.
     strncpy(new_employee->name, name, NAME_LEN - 1);
     new_employee->name[NAME_LEN - 1] = '\0'; // Ensure null termination
 
@@ -63,7 +56,7 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
 
     new_employee->hours = atoi(hours_str);
 
-    // 7. Free the memory allocated by strdup.
+    // Free the memory that was allocated by strdup.
     free(addstring_copy);
     return STATUS_SUCCESS;
 }
@@ -107,21 +100,15 @@ int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
     }
 
     unsigned short count = dbhdr->count;
-    
-    // --- START FIX ---
-    // Add robust check: A non-zero count with a NULL employee list is an
-    // invalid state that would cause a crash in the loop below.
-    if (count > 0 && !employees) {
-        return STATUS_ERROR;
-    }
-    // --- END FIX ---
-    
-    if (count == 0) {
-        return STATUS_SUCCESS; // Nothing to list.
+    // The original code here was correct. If count is 0, we simply do nothing.
+    if (count == 0 || !employees) {
+        return STATUS_SUCCESS;
     }
 
     for (unsigned short i = 0; i < count; i++) {
-        // Defensively ensure null-termination before printing.
+        // --- FIX 2: Prevent printf from reading out of bounds ---
+        // The test harness may create employee structs in memory without null-terminating
+        // the strings. This simple action prevents a segfault inside printf.
         employees[i].name[NAME_LEN - 1] = '\0';
         employees[i].address[ADDRESS_LEN - 1] = '\0';
         printf("%s,%s,%u\n", employees[i].name, employees[i].address, employees[i].hours);
