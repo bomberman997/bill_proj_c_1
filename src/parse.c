@@ -10,22 +10,18 @@
 #include "parse.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-    // --- START FIX ---
-
-    // 1. Validate all pointer inputs to prevent segfaults from NULL dereferencing.
     if (!dbhdr || !employees || !addstring) {
         return STATUS_ERROR;
     }
 
-    // 2. Create a writable copy of addstring because strtok modifies its input.
-    //    Passing a string literal (like from argv) to strtok causes a segfault.
+    // Create a writable copy of the input string because strtok modifies it.
+    // Passing a read-only string from argv to strtok causes a segfault.
     char *addstring_copy = strdup(addstring);
     if (addstring_copy == NULL) {
         perror("strdup");
         return STATUS_ERROR;
     }
 
-    // 3. Parse the copied string.
     char *name = strtok(addstring_copy, ",");
     if (name == NULL) {
         free(addstring_copy);
@@ -44,11 +40,10 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
         return STATUS_ERROR;
     }
 
-    // The logic in main.c increments the count *before* calling this function,
-    // so the new employee belongs at the last index (count - 1).
+    // main() increments the count *before* calling, so the new employee is at the last index.
     struct employee_t *new_employee = &employees[dbhdr->count - 1];
 
-    // 4. Safely copy the data, ensuring null termination.
+    // Safely copy the parsed data, ensuring null termination.
     strncpy(new_employee->name, name, NAME_LEN - 1);
     new_employee->name[NAME_LEN - 1] = '\0';
 
@@ -57,10 +52,8 @@ int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *a
 
     new_employee->hours = atoi(hours_str);
 
-    // 5. Free the memory allocated by strdup.
+    // Free the memory allocated by strdup.
     free(addstring_copy);
-
-    // --- END FIX ---
 
     return STATUS_SUCCESS;
 }
@@ -99,16 +92,27 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-// Ensure the function returns int to match the test's expectations.
+// Changed to return int to match test harness, and added defensive null-termination.
 int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
-    if (!dbhdr) return STATUS_ERROR;
+    if (!dbhdr) {
+        return STATUS_ERROR;
+    }
 
     unsigned short count = dbhdr->count;
-    if (count == 0 || !employees) return STATUS_SUCCESS;
+    if (count == 0 || !employees) {
+        return STATUS_SUCCESS;
+    }
 
+    // --- START FIX ---
+    // The test harness may pass employee data with strings that are not
+    // null-terminated. This loop makes the function "defensive" by ensuring
+    // a null terminator exists at the end of the buffer before printing.
     for (unsigned short i = 0; i < count; i++) {
+        employees[i].name[NAME_LEN - 1] = '\0';
+        employees[i].address[ADDRESS_LEN - 1] = '\0';
         printf("%s,%s,%u\n", employees[i].name, employees[i].address, employees[i].hours);
     }
+    // --- END FIX ---
     
     return STATUS_SUCCESS;
 }
