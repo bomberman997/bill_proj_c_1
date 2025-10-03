@@ -9,11 +9,38 @@
 #include "common.h"
 #include "parse.h"
 
-
-
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
-  (void)dbhdr; (void)employees; (void)addstring; // TODO: parse & append
-  return STATUS_SUCCESS;
+    // The employee array has already been resized in main(). 
+    // The new employee will be at the last index.
+    struct employee_t *new_employee = &employees[dbhdr->count - 1];
+
+    // Use strtok to parse the "Name,Address,Hours" string
+    char *name = strtok(addstring, ",");
+    if (name == NULL) {
+        return STATUS_ERROR;
+    }
+
+    char *address = strtok(NULL, ",");
+    if (address == NULL) {
+        return STATUS_ERROR;
+    }
+
+    char *hours_str = strtok(NULL, ",");
+    if (hours_str == NULL) {
+        return STATUS_ERROR;
+    }
+
+    // Safely copy the parsed strings into the new employee struct
+    strncpy(new_employee->name, name, NAME_LEN -1);
+    new_employee->name[NAME_LEN - 1] = '\0';
+
+    strncpy(new_employee->address, address, ADDRESS_LEN-1);
+    new_employee->address[ADDRESS_LEN - 1] = '\0';
+
+    // Convert the hours string to an integer
+    new_employee->hours = atoi(hours_str);
+
+    return STATUS_SUCCESS;
 }
 
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
@@ -53,22 +80,17 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
-    if (!dbhdr) return;
+int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
+    if (!dbhdr) return STATUS_ERROR;
 
     unsigned short count = dbhdr->count;
-    if (count == 0 || !employees) return;
+    if (count == 0 || !employees) return STATUS_SUCCESS;
 
-    // Print as CSV lines the grader can parse: name,address,hours\n
-    // Example lines:
-    // Alice,123 Main St,40
-    // Carol,55 River Rd,37
     for (unsigned short i = 0; i < count; i++) {
-        // Ensure NUL-terminated strings are printed safely
-        employees[i].name[NAME_LEN - 1] = '\0';
-        employees[i].address[ADDRESS_LEN - 1] = '\0';
         printf("%s,%s,%u\n", employees[i].name, employees[i].address, employees[i].hours);
     }
+    
+    return STATUS_SUCCESS;
 }
 
 
@@ -129,10 +151,10 @@ int create_db_header(struct dbheader_t **headerOut) {
     struct dbheader_t *h = calloc(1, sizeof *h);
     if (!h) return STATUS_ERROR;
 
-    h->magic    = HEADER_MAGIC;                 // 0x4c4c4144
-    h->version  = 1;                            // start at 1
-    h->count    = 0;                            // none yet
-    h->filesize = (unsigned int)sizeof(struct dbheader_t);  // <-- NO htonl
+    h->magic    = HEADER_MAGIC;
+    h->version  = 1;
+    h->count    = 0;
+    h->filesize = (unsigned int)sizeof(struct dbheader_t);
 
     *headerOut = h;
     return STATUS_SUCCESS;
