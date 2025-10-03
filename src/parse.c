@@ -117,20 +117,17 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
   *headerOut = header;
   return STATUS_SUCCESS; // ✅ ensure we return
 }
-
 int create_db_header(struct dbheader_t **headerOut) {
-  // (void)fd; // not used here (kept to match your current prototype)
-  struct dbheader_t *header = calloc(1,sizeof(struct dbheader_t));
-  if (header == NULL){
-    printf("Malloc failed to create db header\n");
-    return STATUS_ERROR;
-  }
-  header->version  = 0x1;
-  header->count    = 0;
-  header->magic    = HEADER_MAGIC;
-  header->filesize = sizeof(struct dbheader_t);
+    if (!headerOut) return STATUS_ERROR;
 
-  *headerOut = header;
-  return STATUS_SUCCESS;
+    struct dbheader_t *h = calloc(1, sizeof *h);
+    if (!h) return STATUS_ERROR;
+
+    h->magic    = HEADER_MAGIC;                 // 0x4c4c4144
+    h->version  = 1;                            // start at 1
+    h->count    = 0;                            // none yet
+    h->filesize = (unsigned int)sizeof(struct dbheader_t);  // <-- NO htonl
+
+    *headerOut = h;
+    return STATUS_OK;
 }
-
