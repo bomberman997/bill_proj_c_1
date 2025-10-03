@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
       printf("Unable to open database file\n");
       return -1;
     }
-    if (validate_db_header(dbfd, &dbhdr) == STATUS_ERROR){
+    if (validate_db_header( &dbhdr) == STATUS_ERROR){
       printf("Failed to validate_db_header");
       return -1;
     }
