@@ -63,47 +63,25 @@ int create_db_header(struct dbheader_t **headerOut) {
  * On success, returns STATUS_OK and sets *headerOut to a heap-allocated copy.
  * Caller owns *headerOut and must free it.
  */
+// Replace your validate_db_header with this hardened version
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
+    if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
 
-    // Get file size
     struct stat st;
-    if (fstat(fd, &st) == -1) {
-        perror("fstat");
-        return STATUS_ERROR;
-    }
+    if (fstat(fd, &st) == -1) { perror("fstat"); return STATUS_ERROR; }
 
-    // Read header from start of file
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
-        perror("lseek");
-        return STATUS_ERROR;
-    }
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
     struct dbheader_t *header = calloc(1, sizeof *header);
-    if (!header) {
-        perror("calloc");
-        return STATUS_ERROR;
-    }
+    if (!header) { perror("calloc"); return STATUS_ERROR; }
 
     ssize_t n = read(fd, header, sizeof *header);
-    if (n != (ssize_t)sizeof *header) {
-        perror("read");
-        free(header);
-        return STATUS_ERROR;
-    }
+    if (n != (ssize_t)sizeof *header) { perror("read"); free(header); return STATUS_ERROR; }
 
-    if (header->version != 1) {
-        free(header);
-        return STATUS_ERROR;
-    }
-    if (header->magic != HEADER_MAGIC) {
-        free(header);
-        return STATUS_ERROR;
-    }
-    if (header->filesize != (uint32_t)st.st_size) {
-        free(header);
-        return STATUS_ERROR;
-    }
+    if (header->version != 1) { free(header); return STATUS_ERROR; }
+    if (header->magic   != HEADER_MAGIC) { free(header); return STATUS_ERROR; }
+    if (header->filesize != (uint32_t)st.st_size) { free(header); return STATUS_ERROR; }
 
     *headerOut = header;
     return STATUS_OK;
