@@ -52,7 +52,7 @@ int create_db_header(struct dbheader_t **headerOut) {
     h->filesize = (uint32_t)sizeof(struct dbheader_t);
 
     *headerOut = h;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
 /*
@@ -84,7 +84,7 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (header->filesize != (uint32_t)st.st_size) { free(header); return STATUS_ERROR; }
 
     *headerOut = header;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
 /*
@@ -93,11 +93,11 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
  */
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
     (void)fd; (void)dbhdr; (void)employeesOut;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     (void)fd; (void)dbhdr; (void)employees;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
