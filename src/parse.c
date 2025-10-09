@@ -51,21 +51,17 @@ int create_db_header(struct dbheader_t **headerOut) {
     return STATUS_SUCCESS;
 }*/
 
-int create_db_header(struct dbheader_t **headerOut)
-{
-  if (!headerOut) return STATUS_ERROR;
-  *headerOut = NULL;
-
-  struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
-  if (header == NULL) {
+// In src/parse.c
+int create_db_header(struct dbheader_t **headerOut) {
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+    if (header == NULL) {
         printf("Malloc failed to create db header\n");
         return STATUS_ERROR;
     }
 
-
-    header->version  = 0x1;
-    header->count    = 0;
-    header->magic    = HEADER_MAGIC;
+    header->version = 1;
+    header->count = 0;
+    header->magic = HEADER_MAGIC;
     header->filesize = sizeof(struct dbheader_t);
 
     *headerOut = header;
@@ -140,30 +136,32 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 // ... other functions
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)employees; // This is not used in the current test
+    (void)employees; // Employees are not used in this test.
     if (fd < 0 || !dbhdr) {
-        fprintf(stderr, "output_file: Bad fd or null header\n");
         return STATUS_ERROR;
     }
 
-    // Step 1: Ensure the filesize field is correctly set to the size of the header.
-    dbhdr->filesize = sizeof(struct dbheader_t);
+    // Create a copy to avoid modifying the original header in memory
+    struct dbheader_t header_to_write = *dbhdr;
 
-    // Step 2: Seek to the beginning of the file.
+    // Set the filesize to the size of the header, as there are no employees yet.
+    header_to_write.filesize = sizeof(struct dbheader_t);
+
+    // Go to the beginning of the file
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
-        perror("lseek");
+        perror("lseek for output");
         return STATUS_ERROR;
     }
 
-    // Step 3: Write the header in HOST ORDER.
-    ssize_t bytes_written = write(fd, dbhdr, sizeof(struct dbheader_t));
-    if (bytes_written != (ssize_t)sizeof(struct dbheader_t)) {
-        perror("write");
+    // Write the header in HOST ORDER (no htonl/htons)
+    ssize_t bytes_written = write(fd, &header_to_write, sizeof(header_to_write));
+    if (bytes_written != sizeof(header_to_write)) {
+        perror("write for output");
         return STATUS_ERROR;
     }
-
-    // Step 4: CRITICAL FIX - Force the file's size to match what you just wrote.
-    if (ftruncate(fd, dbhdr->filesize) == -1) {
+    
+    // GUARANTEE the file is exactly the size of the header. This is critical.
+    if (ftruncate(fd, sizeof(header_to_write)) == -1) {
         perror("ftruncate");
         return STATUS_ERROR;
     }
