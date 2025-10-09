@@ -67,6 +67,11 @@ if (newfile) {
         printf("Failed to create database header\n"); 
         return -1;
     }
+        // Write the initial header right after creating it
+    if (output_file(dbfd, dbhdr, NULL) != STATUS_SUCCESS) {
+        fprintf(stderr, "Failed to write initial database header\n");
+        return -1;
+    }
 
 }
     if (addstring) {

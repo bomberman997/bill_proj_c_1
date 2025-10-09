@@ -133,35 +133,33 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 // ... other functions
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)employees; // Employees are not used in this test.
-    if (fd < 0 || !dbhdr) {
-        return STATUS_ERROR;
+    (void)employees;
+    if (fd < 0 || !dbhdr) { 
+        fprintf(stderr, "Bad fd or null header\n"); 
+        return STATUS_ERROR; 
     }
 
-    // Create a copy to avoid modifying the original header in memory
-    struct dbheader_t header_to_write = *dbhdr;
+    // Ensure filesize is set correctly
+    dbhdr->filesize = sizeof(struct dbheader_t);
 
-    // Set the filesize to the size of the header, as there are no employees yet.
-    header_to_write.filesize = sizeof(struct dbheader_t);
-
-    // Go to the beginning of the file
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
-        perror("lseek for output");
-        return STATUS_ERROR;
+    // Truncate to exact size
+    if (ftruncate(fd, dbhdr->filesize) == -1) { 
+        perror("ftruncate"); 
+        return STATUS_ERROR; 
     }
 
-    // Write the header in HOST ORDER (no htonl/htons)
-    ssize_t bytes_written = write(fd, &header_to_write, sizeof(header_to_write));
-    if (bytes_written != sizeof(header_to_write)) {
-        perror("write for output");
-        return STATUS_ERROR;
-    }
-    
-    // GUARANTEE the file is exactly the size of the header. This is critical.
-    if (ftruncate(fd, sizeof(header_to_write)) == -1) {
-        perror("ftruncate");
-        return STATUS_ERROR;
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { 
+        perror("lseek"); 
+        return STATUS_ERROR; 
     }
 
+    // Write in HOST ORDER (matching your hex dump)
+    ssize_t n = write(fd, dbhdr, sizeof(*dbhdr));
+    if (n != (ssize_t)sizeof(*dbhdr)) { 
+        perror("write"); 
+        return STATUS_ERROR; 
+    }
+
+    fsync(fd);
     return STATUS_SUCCESS;
 }
