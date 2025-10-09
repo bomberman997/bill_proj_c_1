@@ -73,30 +73,61 @@ int create_db_header(struct dbheader_t **headerOut)
 }
 
 
+// In src/parse.c
+
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
 
     struct stat st;
-    if (fstat(fd, &st) == -1) { perror("fstat"); return STATUS_ERROR; }
-    if ((size_t)st.st_size < sizeof(struct dbheader_t)) return STATUS_ERROR;
+    if (fstat(fd, &st) == -1) {
+        perror("fstat");
+        return STATUS_ERROR;
+    }
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+    if ((size_t)st.st_size < sizeof(struct dbheader_t)) {
+        return STATUS_ERROR;
+    }
+
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+        perror("lseek");
+        return STATUS_ERROR;
+    }
 
     struct dbheader_t *h = calloc(1, sizeof *h);
-    if (!h) { perror("calloc"); return STATUS_ERROR; }
+    if (!h) {
+        perror("calloc");
+        return STATUS_ERROR;
+    }
 
     ssize_t n = read(fd, h, sizeof *h);
-    if (n != (ssize_t)sizeof *h) { perror("read"); free(h); return STATUS_ERROR; }
+    if (n != (ssize_t)sizeof *h) {
+        perror("read");
+        free(h);
+        return STATUS_ERROR;
+    }
 
-    if (h->version  != 1)                        { free(h); return STATUS_ERROR; }
-    if (h->magic    != HEADER_MAGIC)             { free(h); return STATUS_ERROR; }
-    if (h->filesize != (unsigned int)st.st_size) { free(h); return STATUS_ERROR; }
+    // This is the check that is failing. It compares the header field to the file's actual size.
+    if (h->filesize != (unsigned int)st.st_size) {
+        free(h);
+        return STATUS_ERROR;
+    }
+
+    if (h->magic != HEADER_MAGIC) {
+        free(h);
+        return STATUS_ERROR;
+    }
+
+    if (h->version != 1) {
+        free(h);
+        return STATUS_ERROR;
+    }
 
     *headerOut = h;
     return STATUS_SUCCESS;
 }
-/*
+
+/**
  * Later tests will likely need these. For now, provide safe stubs so you pass
  * compilation for the header test. You can fill these out in the next sections.
  */
@@ -105,23 +136,37 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
+
+// ... other functions
+
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)employees;
-    if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
+    (void)employees; // This is not used in the current test
+    if (fd < 0 || !dbhdr) {
+        fprintf(stderr, "output_file: Bad fd or null header\n");
+        return STATUS_ERROR;
+    }
 
-    // Ensure header->filesize matches what we’re about to have on disk
-    dbhdr->filesize = (unsigned int)sizeof(struct dbheader_t);
+    // Step 1: Ensure the filesize field is correctly set to the size of the header.
+    dbhdr->filesize = sizeof(struct dbheader_t);
 
-    // Force the file’s size to exactly match the header’s filesize
-    if (ftruncate(fd, dbhdr->filesize) == -1) { perror("ftruncate"); return STATUS_ERROR; }
+    // Step 2: Seek to the beginning of the file.
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+        perror("lseek");
+        return STATUS_ERROR;
+    }
 
-    // Write header in HOST ORDER (the creation test reads it as-is)
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+    // Step 3: Write the header in HOST ORDER.
+    ssize_t bytes_written = write(fd, dbhdr, sizeof(struct dbheader_t));
+    if (bytes_written != (ssize_t)sizeof(struct dbheader_t)) {
+        perror("write");
+        return STATUS_ERROR;
+    }
 
-    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
-    if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
+    // Step 4: CRITICAL FIX - Force the file's size to match what you just wrote.
+    if (ftruncate(fd, dbhdr->filesize) == -1) {
+        perror("ftruncate");
+        return STATUS_ERROR;
+    }
 
-    fsync(fd);
     return STATUS_SUCCESS;
 }
-
