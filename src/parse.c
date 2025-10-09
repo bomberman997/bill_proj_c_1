@@ -95,7 +95,7 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     return STATUS_SUCCESS;
 }
 */
-void output_file(struct dbheader_t *dbhdr) {
+void output_file(int fd,struct dbheader_t *dbhdr) {
   if (fd < 0 ){
     printf("Got a bad FD from the user\n");
     return STATUS_ERROR;
