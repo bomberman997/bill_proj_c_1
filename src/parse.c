@@ -107,19 +107,41 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     (void)employees;
-    if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
+    if (fd < 0 || !dbhdr) { 
+        fprintf(stderr, "Bad fd or null header\n"); 
+        return STATUS_ERROR; 
+    }
 
-    // Ensure header->filesize matches what we’re about to have on disk
-    dbhdr->filesize = (unsigned int)sizeof(struct dbheader_t);
+    // Calculate actual file size
+    unsigned int actual_filesize = sizeof(struct dbheader_t);
+    
+    // Set filesize in the header
+    dbhdr->filesize = actual_filesize;
 
-    // Force the file’s size to exactly match the header’s filesize
-    if (ftruncate(fd, dbhdr->filesize) == -1) { perror("ftruncate"); return STATUS_ERROR; }
+    // Create network-order copy for writing
+    struct dbheader_t network_hdr;
+    network_hdr.magic = htonl(dbhdr->magic);
+    network_hdr.version = htons(dbhdr->version);
+    network_hdr.count = htons(dbhdr->count);
+    network_hdr.filesize = htonl(dbhdr->filesize);
 
-    // Write header in HOST ORDER (the creation test reads it as-is)
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+    // Truncate file to exact size
+    if (ftruncate(fd, actual_filesize) == -1) { 
+        perror("ftruncate"); 
+        return STATUS_ERROR; 
+    }
 
-    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
-    if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
+    // Write header in NETWORK ORDER
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { 
+        perror("lseek"); 
+        return STATUS_ERROR; 
+    }
+
+    ssize_t n = write(fd, &network_hdr, sizeof(network_hdr));
+    if (n != (ssize_t)sizeof(network_hdr)) { 
+        perror("write"); 
+        return STATUS_ERROR; 
+    }
 
     fsync(fd);
     return STATUS_SUCCESS;
