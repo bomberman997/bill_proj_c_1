@@ -72,56 +72,53 @@ int create_db_header(struct dbheader_t **headerOut) {
 // In src/parse.c
 
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
-    if (headerOut) *headerOut = NULL;
-    if (fd < 0 || !headerOut) return STATUS_ERROR;
-
-    struct stat st;
-    if (fstat(fd, &st) == -1) {
-        perror("fstat");
+    if (fd < 0) {
         return STATUS_ERROR;
     }
 
-    if ((size_t)st.st_size < sizeof(struct dbheader_t)) {
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+    if (header == NULL) {
         return STATUS_ERROR;
     }
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
-        perror("lseek");
+    if (read(fd, header, sizeof(struct dbheader_t)) != sizeof(struct dbheader_t)) {
+        perror("read for validation");
+        free(header);
         return STATUS_ERROR;
     }
 
-    struct dbheader_t *h = calloc(1, sizeof *h);
-    if (!h) {
-        perror("calloc");
+    // Convert from network to host byte order for validation
+    header->version = ntohs(header->version);
+    header->count = ntohs(header->count);
+    header->magic = ntohl(header->magic);
+    header->filesize = ntohl(header->filesize);
+
+    if (header->magic != HEADER_MAGIC) {
+        free(header);
         return STATUS_ERROR;
     }
 
-    ssize_t n = read(fd, h, sizeof *h);
-    if (n != (ssize_t)sizeof *h) {
-        perror("read");
-        free(h);
+    if (header->version != 1) {
+        free(header);
         return STATUS_ERROR;
     }
 
-    // This is the check that is failing. It compares the header field to the file's actual size.
-    if (h->filesize != (unsigned int)st.st_size) {
-        free(h);
+    struct stat dbstat = {0};
+    if (fstat(fd, &dbstat) == -1) {
+        perror("fstat for validation");
+        free(header);
+        return STATUS_ERROR;
+    }
+    
+    if (header->filesize != dbstat.st_size) {
+        free(header);
         return STATUS_ERROR;
     }
 
-    if (h->magic != HEADER_MAGIC) {
-        free(h);
-        return STATUS_ERROR;
-    }
-
-    if (h->version != 1) {
-        free(h);
-        return STATUS_ERROR;
-    }
-
-    *headerOut = h;
+    *headerOut = header;
     return STATUS_SUCCESS;
 }
+
 
 /**
  * Later tests will likely need these. For now, provide safe stubs so you pass
