@@ -56,11 +56,11 @@ int create_db_header(struct dbheader_t **headerOut)
   if (!headerOut) {return STATUS_ERROR};
   *headerOut = NULL;
 
+  struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
   if (header == NULL) {
         printf("Malloc failed to create db header\n");
         return STATUS_ERROR;
     }
-    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
 
 
     header->version  = 0x1;
