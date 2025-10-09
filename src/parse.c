@@ -52,9 +52,9 @@ int create_db_header(struct dbheader_t **headerOut) {
 }*/
 
 // In src/parse.c
-int create_db_header(struct dbheader_t **headerOut)
-{
-    if (!headerOut) return STATUS_ERROR;  // Don't dereference if NULL
+int create_db_header(int fd, struct dbheader_t **headerOut) {
+    (void)fd;  // unused but required by interface
+    if (!headerOut) return STATUS_ERROR;
     
     struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
     if (header == NULL) {
@@ -62,14 +62,15 @@ int create_db_header(struct dbheader_t **headerOut)
         return STATUS_ERROR;
     }
 
-    header->magic    = HEADER_MAGIC;
     header->version  = 0x1;
     header->count    = 0;
+    header->magic    = HEADER_MAGIC;
     header->filesize = sizeof(struct dbheader_t);
 
-    *headerOut = header;  // Only dereference after we know it's valid
+    *headerOut = header;
     return STATUS_SUCCESS;
 }
+
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
@@ -132,30 +133,28 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 // ... other functions
 
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)employees;
-    if (fd < 0 || !dbhdr) { 
-        fprintf(stderr, "Bad fd or null header\n"); 
-        return STATUS_ERROR; 
+    if (fd < 0) {
+        printf("Got a bad FD from the user\n");
+        return STATUS_ERROR;
     }
 
-    // Truncate to the size specified in the header
-    if (ftruncate(fd, dbhdr->filesize) == -1) { 
-        perror("ftruncate"); 
-        return STATUS_ERROR; 
+    int realcount = dbhdr->count;
+
+    // Modify in-place (this is what the reference does!)
+    dbhdr->magic = htonl(dbhdr->magic);
+    dbhdr->filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
+    dbhdr->count = htons(dbhdr->count);
+    dbhdr->version = htons(dbhdr->version);
+
+    lseek(fd, 0, SEEK_SET);
+
+    write(fd, dbhdr, sizeof(struct dbheader_t));
+
+    int i = 0;
+    for (; i < realcount; i++) {
+        employees[i].hours = htonl(employees[i].hours);
+        write(fd, &employees[i], sizeof(struct employee_t));
     }
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { 
-        perror("lseek"); 
-        return STATUS_ERROR; 
-    }
-
-    // Write in HOST ORDER (no conversion)
-    ssize_t n = write(fd, dbhdr, sizeof(*dbhdr));
-    if (n != (ssize_t)sizeof(*dbhdr)) { 
-        perror("write"); 
-        return STATUS_ERROR; 
-    }
-
-    fsync(fd);
     return STATUS_SUCCESS;
 }

@@ -86,10 +86,10 @@ if (addstring) {
     add_employee(dbhdr, employees, addstring);
     
     // Write after adding employee
-    if (output_file(dbfd, dbhdr, employees) != STATUS_SUCCESS) {
-        fprintf(stderr, "Failed to write after adding employee\n");
-        return -1;
-    }
+if (create_db_header(dbfd, &dbhdr) == STATUS_ERROR) {  // Pass dbfd!
+    printf("Failed to create database header\n"); 
+    return -1;
+}
 }
 
 
