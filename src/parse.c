@@ -83,19 +83,26 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
+    struct dbheader_t raw;
+    ssize_t n = read(fd, &raw, sizeof raw);
+    if (n != (ssize_t)sizeof raw) { perror("read"); return STATUS_ERROR; }
+
     struct dbheader_t *h = calloc(1, sizeof *h);
     if (!h) { perror("calloc"); return STATUS_ERROR; }
 
-    ssize_t n = read(fd, h, sizeof *h);
-    if (n != (ssize_t)sizeof *h) { perror("read"); free(h); return STATUS_ERROR; }
+    h->magic    = ntohl(raw.magic);
+    h->version  = ntohs(raw.version);
+    h->count    = ntohs(raw.count);
+    h->filesize = ntohl(raw.filesize);
 
-    if (h->version  != 1)                         { free(h); return STATUS_ERROR; }
-    if (h->magic    != HEADER_MAGIC)              { free(h); return STATUS_ERROR; }
-    if (h->filesize != (unsigned int)st.st_size)  { free(h); return STATUS_ERROR; }
+    if (h->version != 1)                         { free(h); return STATUS_ERROR; }
+    if (h->magic   != HEADER_MAGIC)              { free(h); return STATUS_ERROR; }
+    if (h->filesize != (unsigned int)st.st_size) { free(h); return STATUS_ERROR; }
 
     *headerOut = h;
     return STATUS_SUCCESS;
 }
+
 
 /*
  * Later tests will likely need these. For now, provide safe stubs so you pass
@@ -111,10 +118,16 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     (void)employees;
     if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+    // network-order copy for disk
+    struct dbheader_t out = *dbhdr;
+    out.magic    = htonl(out.magic);
+    out.version  = htons(out.version);
+    out.count    = htons(out.count);
+    out.filesize = htonl(out.filesize);
 
-    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);   // <-- write host-order struct directly
-    if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+    ssize_t n = write(fd, &out, sizeof out);
+    if (n != (ssize_t)sizeof out) { perror("write"); return STATUS_ERROR; }
 
     fsync(fd);
     return STATUS_SUCCESS;
