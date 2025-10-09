@@ -146,4 +146,3 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     fsync(fd);
     return STATUS_SUCCESS;
 }
-
