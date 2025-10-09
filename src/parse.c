@@ -7,27 +7,20 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include "parse.h"
 
-// If your project already defines STATUS_OK/STATUS_ERROR in common.h, you can
-// include that and remove these. For now, keep it simple:
-#ifndef STATUS_OK
-#define STATUS_OK 0
-#endif
-#ifndef STATUS_ERROR
-#define STATUS_ERROR -1
-#endif
+#include "parse.h"
+#include "common.h"
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
     // Not required for this test; stub so you can compile now.
     (void)dbhdr; (void)employees; (void)addstring;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
 int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
     // Not required for this test; stub so you can compile now.
     (void)dbhdr; (void)employees;
-    return STATUS_OK;
+    return STATUS_SUCCESS;
 }
 
 /*
