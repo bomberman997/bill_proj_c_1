@@ -52,23 +52,24 @@ int create_db_header(struct dbheader_t **headerOut) {
 }*/
 
 // In src/parse.c
-int create_db_header(struct dbheader_t **headerOut) {
+int create_db_header(struct dbheader_t **headerOut)
+{
+    if (!headerOut) return STATUS_ERROR;  // Don't dereference if NULL
+    
     struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
     if (header == NULL) {
         printf("Malloc failed to create db header\n");
         return STATUS_ERROR;
     }
 
-    header->version = 1;
-    header->count = 0;
-    header->magic = HEADER_MAGIC;
+    header->magic    = HEADER_MAGIC;
+    header->version  = 0x1;
+    header->count    = 0;
     header->filesize = sizeof(struct dbheader_t);
 
-    *headerOut = header;
+    *headerOut = header;  // Only dereference after we know it's valid
     return STATUS_SUCCESS;
 }
-
-
 // In src/parse.c
 
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
