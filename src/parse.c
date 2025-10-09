@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <arpa/inet.h>
+
 
 #include "parse.h"
 #include "common.h"
@@ -48,15 +50,6 @@ int create_db_header(struct dbheader_t **headerOut) {
     return STATUS_SUCCESS;
 }
 
-/*
- * Read the header from fd and validate:
- * - version == 1
- * - magic   == HEADER_MAGIC
- * - filesize matches actual file size
- * On success, returns STATUS_OK and sets *headerOut to a heap-allocated copy.
- * Caller owns *headerOut and must free it.
- */
-// Replace your validate_db_header with this hardened version
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
@@ -89,16 +82,11 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-/* Not different version from later in the course
-int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)fd; (void)dbhdr; (void)employees;
-    return STATUS_SUCCESS;
-}
-*/
+
 void output_file(int fd,struct dbheader_t *dbhdr) {
   if (fd < 0 ){
     printf("Got a bad FD from the user\n");
-    return STATUS_ERROR;
+    return; //  STATUS_ERROR; // ED saids output file had to be void iun this lesson so why return
   }
 
   dbhdr->magic = htonl(dbhdr->magic);

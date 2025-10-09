@@ -23,7 +23,7 @@ int validate_db_header(int fd, struct dbheader_t **headerOut);
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut);
 
 //int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees);
-void output_file(int fd,struct dbheader_t);
+void output_file(int fd,struct dbheader_t *);
 
 // Likely needed elsewhere in your project/tests
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring);

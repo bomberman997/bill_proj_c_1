@@ -68,11 +68,7 @@ if (newfile) {
         return -1;
     }
 
-}    if (read_employees(dbfd, dbhdr, &employees) != STATUS_SUCCESS) {
-        printf("Failed to read employees\n");
-        output_file(dbfd, dbhdr);
-        return -1;
-    }
+}
 
     if (addstring) {
         dbhdr->count++;
