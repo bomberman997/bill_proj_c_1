@@ -86,10 +86,7 @@ if (addstring) {
     add_employee(dbhdr, employees, addstring);
     
     // Write after adding employee
-if (create_db_header(dbfd, &dbhdr) == STATUS_ERROR) {  // Pass dbfd!
-    printf("Failed to create database header\n"); 
-    return -1;
-}
+
 }
 
 
