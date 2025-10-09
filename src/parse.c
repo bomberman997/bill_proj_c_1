@@ -53,11 +53,15 @@ int create_db_header(struct dbheader_t **headerOut) {
 
 int create_db_header(struct dbheader_t **headerOut)
 {
-    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
-    if (header == NULL) {
+  if (!headerOut) {return STATUS_ERROR};
+  *headerOut = NULL;
+
+  if (header == NULL) {
         printf("Malloc failed to create db header\n");
         return STATUS_ERROR;
     }
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+
 
     header->version  = 0x1;
     header->count    = 0;
@@ -122,7 +126,7 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
-    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
+    ssize_t n = write(fd, out, sizeof(out) );
     if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
 
     fsync(fd);
