@@ -83,27 +83,19 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
-    struct dbheader_t raw;
-    ssize_t n = read(fd, &raw, sizeof raw);
-    if (n != (ssize_t)sizeof raw) { perror("read"); return STATUS_ERROR; }
-
     struct dbheader_t *h = calloc(1, sizeof *h);
     if (!h) { perror("calloc"); return STATUS_ERROR; }
 
-    h->magic    = ntohl(raw.magic);
-    h->version  = ntohs(raw.version);
-    h->count    = ntohs(raw.count);
-    h->filesize = ntohl(raw.filesize);
+    ssize_t n = read(fd, h, sizeof *h);
+    if (n != (ssize_t)sizeof *h) { perror("read"); free(h); return STATUS_ERROR; }
 
-    if (h->version != 1)                         { free(h); return STATUS_ERROR; }
-    if (h->magic   != HEADER_MAGIC)              { free(h); return STATUS_ERROR; }
+    if (h->version  != 1)                        { free(h); return STATUS_ERROR; }
+    if (h->magic    != HEADER_MAGIC)             { free(h); return STATUS_ERROR; }
     if (h->filesize != (unsigned int)st.st_size) { free(h); return STATUS_ERROR; }
 
     *headerOut = h;
     return STATUS_SUCCESS;
 }
-
-
 /*
  * Later tests will likely need these. For now, provide safe stubs so you pass
  * compilation for the header test. You can fill these out in the next sections.
@@ -113,20 +105,23 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     (void)employees;
     if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
 
-    // Ensure filesize matches exactly what will be on disk for this step
+    // Ensure header->filesize matches what we’re about to have on disk
     dbhdr->filesize = (unsigned int)sizeof(struct dbheader_t);
 
+    // Force the file’s size to exactly match the header’s filesize
+    if (ftruncate(fd, dbhdr->filesize) == -1) { perror("ftruncate"); return STATUS_ERROR; }
+
+    // Write header in HOST ORDER (the creation test reads it as-is)
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
-    // Write HOST-ORDER struct (no hton*)
     ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
     if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
 
     fsync(fd);
     return STATUS_SUCCESS;
 }
+
