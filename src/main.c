@@ -69,7 +69,10 @@ if (newfile) {
     }
 
 }
-
+if (output_file(dbfd, dbhdr, NULL) != STATUS_SUCCESS) {
+    fprintf(stderr, "Failed to write initial database header\n");
+    return -1;
+}
     if (addstring) {
         dbhdr->count++;
         struct employee_t *tmp = realloc(employees, dbhdr->count * sizeof(struct employee_t));
@@ -86,7 +89,8 @@ if (newfile) {
         list_employees(dbhdr, employees);
     }
 
-    output_file(dbfd, dbhdr);
+    output_file(dbfd, dbhdr, employees);
+    //output_file(dbfd, dbhdr);
 
     free(employees);
     free(dbhdr);

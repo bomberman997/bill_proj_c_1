@@ -83,19 +83,24 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 }
 
 
-void output_file(int fd,struct dbheader_t *dbhdr) {
-  if (fd < 0 ){
-    printf("Got a bad FD from the user\n");
-    return; //  STATUS_ERROR; // ED saids output file had to be void iun this lesson so why return
-  }
 
-  dbhdr->magic = htonl(dbhdr->magic);
-  dbhdr->filesize = htonl(dbhdr-> filesize);
-  dbhdr->count = htons(dbhdr->filesize);
-  dbhdr->version = htons(dbhdr->version);
+int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
+    (void)employees; // unused for step 1
 
-  lseek(fd,0,SEEK_SET);
-  write(fd,dbhdr,sizeof(struct dbheader_t));
+    if (fd < 0 || !dbhdr) {
+        fprintf(stderr, "Bad fd or null header\n");
+        return STATUS_ERROR;
+    }
 
-  return;
+    // IMPORTANT for Step 1: write fields as-is (host order).
+    // If a later step requires network order, convert here with htonl/htons
+    // AND convert back with ntohl/ntohs when reading/validating.
+
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
+
+    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
+    if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
+
+    fsync(fd);
+    return STATUS_SUCCESS;
 }
