@@ -51,7 +51,7 @@ int create_db_header(struct dbheader_t **headerOut) {
     return STATUS_SUCCESS;
 }*/
 
-int create_db_header(struct dbheader_t **headerOut) {
+int create_db_header(struct dbheader_t **headerOut) {  // No fd!
     if (!headerOut) return STATUS_ERROR;
     
     struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
@@ -60,68 +60,60 @@ int create_db_header(struct dbheader_t **headerOut) {
         return STATUS_ERROR;
     }
 
-    header->version  = 0x1;
-    header->count    = 0;
-    header->magic    = HEADER_MAGIC;
+    header->version = 0x01;
+    header->count = 0;
+    header->magic = HEADER_MAGIC;
     header->filesize = sizeof(struct dbheader_t);
-
-    *headerOut = header;
+	
+    *headerOut = header; 
     return STATUS_SUCCESS;
 }
 
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
-    if (headerOut) *headerOut = NULL;
-    if (fd < 0 || !headerOut) return STATUS_ERROR;
-
-    struct stat st;
-    if (fstat(fd, &st) == -1) { 
-        perror("fstat"); 
-        return STATUS_ERROR; 
-    }
-    if ((size_t)st.st_size < sizeof(struct dbheader_t)) {
+    if (fd < 0) {
+        printf("Got a bad FD from the user\n");
         return STATUS_ERROR;
     }
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { 
-        perror("lseek"); 
-        return STATUS_ERROR; 
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+    if (header == NULL) {
+        printf("Malloc failed to create dbheader\n");
+        return STATUS_ERROR;
     }
 
-    struct dbheader_t disk_hdr;
-    ssize_t n = read(fd, &disk_hdr, sizeof(disk_hdr));
-    if (n != (ssize_t)sizeof(disk_hdr)) { 
-        perror("read"); 
-        return STATUS_ERROR; 
+    if (read(fd, header, sizeof(struct dbheader_t)) != sizeof(struct dbheader_t)) {
+        perror("read");
+        free(header);
+        return STATUS_ERROR;
     }
 
-    struct dbheader_t *h = calloc(1, sizeof(*h));
-    if (!h) { 
-        perror("calloc"); 
-        return STATUS_ERROR; 
+    header->version = ntohs(header->version);
+    header->count = ntohs(header->count);
+    header->magic = ntohl(header->magic);
+    header->filesize = ntohl(header->filesize);
+    
+    if (header->magic != HEADER_MAGIC) {
+        printf("Improper header magic!\n");
+        free(header);
+        return STATUS_ERROR;
     }
 
-    // Convert from network order
-    h->magic    = ntohl(disk_hdr.magic);
-    h->version  = ntohs(disk_hdr.version);
-    h->count    = ntohs(disk_hdr.count);
-    h->filesize = ntohl(disk_hdr.filesize);
-
-    // Validate
-    if (h->magic != HEADER_MAGIC) { 
-        free(h); 
-        return STATUS_ERROR; 
-    }
-    if (h->version != 1) { 
-        free(h); 
-        return STATUS_ERROR; 
-    }
-    if (h->filesize != (unsigned int)st.st_size) { 
-        free(h); 
-        return STATUS_ERROR; 
+    if (header->version != 1) {
+        printf("Improper header version!\n");
+        free(header);
+        return STATUS_ERROR;
     }
 
-    *headerOut = h;
-    return STATUS_SUCCESS;  // ← THIS WAS MISSING!
+    struct stat dbstat = {0};
+    fstat(fd, &dbstat);
+    if (header->filesize != dbstat.st_size) {
+        printf("Corrupted database!\n");
+        free(header);
+        return STATUS_ERROR;
+    }
+
+    *headerOut = header;
+    return STATUS_SUCCESS;  // ← ADD THIS!
 }
 /**
  * Later tests will likely need these. For now, provide safe stubs so you pass
@@ -133,16 +125,15 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 }
 
 
-// ... other functions
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (fd < 0) {
-        printf("Got a bad FD from the user\n");
+        printf("Got a bad fd from the user\n");
         return STATUS_ERROR;
     }
 
     int realcount = dbhdr->count;
     
-    // Create a COPY for disk writing (don't mutate the original!)
+    // Create a COPY for network byte order conversion
     struct dbheader_t disk_hdr = *dbhdr;
     disk_hdr.magic = htonl(disk_hdr.magic);
     disk_hdr.filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
@@ -150,14 +141,14 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     disk_hdr.version = htons(disk_hdr.version);
 
     lseek(fd, 0, SEEK_SET);
-    write(fd, &disk_hdr, sizeof(struct dbheader_t));  // Write the COPY
-
+    write(fd, &disk_hdr, sizeof(struct dbheader_t));  // Write the copy
+        
     int i = 0;
     for (; i < realcount; i++) {
         struct employee_t disk_emp = employees[i];
         disk_emp.hours = htonl(disk_emp.hours);
         write(fd, &disk_emp, sizeof(struct employee_t));
-    }
-
+    } 
+        
     return STATUS_SUCCESS;
 }
