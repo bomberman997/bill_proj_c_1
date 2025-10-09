@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
 
 if (newfile) {
     dbfd = create_db_file(filepath);
+    printf("%s\n","New file call");
     if (dbfd == STATUS_ERROR) {
         printf("Unable to create database file\n");
         return -1;
@@ -68,13 +69,13 @@ if (newfile) {
     }
     
     // ADD THIS: Write the header immediately after creating it
-    if (output_file(dbfd, dbhdr, NULL) == STATUS_ERROR) {
+    if (output_file(dbfd, dbhdr) == STATUS_ERROR) {
         printf("Failed to write initial database header\n");
         return -1;
     }
 }    if (read_employees(dbfd, dbhdr, &employees) != STATUS_SUCCESS) {
         printf("Failed to read employees\n");
-        output_file(dbfd, dbhdr, NULL);
+        output_file(dbfd, dbhdr);
         return -1;
     }
 
@@ -94,7 +95,7 @@ if (newfile) {
         list_employees(dbhdr, employees);
     }
 
-    output_file(dbfd, dbhdr, employees);
+    output_file(dbfd, dbhdr);
 
     free(employees);
     free(dbhdr);

@@ -39,7 +39,7 @@ int create_db_header(struct dbheader_t **headerOut) {
         return STATUS_ERROR;
     }
 
-    h->magic    = HEADER_MAGIC;
+    h->magic  = HEADER_MAGIC;
     h->version  = 1;
     h->count    = 0;
     h->filesize = sizeof(struct dbheader_t);
@@ -89,8 +89,25 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
+/* Not different version from later in the course
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     (void)fd; (void)dbhdr; (void)employees;
     return STATUS_SUCCESS;
 }
+*/
+void output_file(strcut dbheader_t *dbhdr) { //ignore int i guess FD
+  if (fd < 0 ){
+    printf("Got a bad FD from the user\n");
+    return STATUS_ERROR;
+  }
 
+  dbhdr->magic = htonl(dbhdr->magic);
+  dbhdr->filesize = htonl(dbhdr-> filesize);
+  dbhdr->count = htons(dbhdr->filesize);
+  dbhdr->version = htons(dbhdr->version);
+
+  lseek(fd,0,SEEK_SET);
+  write(fd,dbhdr,sizeof(struct dbheader_t));
+
+  return;
+}
