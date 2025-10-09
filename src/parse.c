@@ -89,21 +89,26 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
         return STATUS_ERROR; 
     }
 
+    struct dbheader_t disk_hdr;
+    ssize_t n = read(fd, &disk_hdr, sizeof(disk_hdr));
+    if (n != (ssize_t)sizeof(disk_hdr)) { 
+        perror("read"); 
+        return STATUS_ERROR; 
+    }
+
     struct dbheader_t *h = calloc(1, sizeof(*h));
     if (!h) { 
         perror("calloc"); 
         return STATUS_ERROR; 
     }
 
-    // Read directly in host order
-    ssize_t n = read(fd, h, sizeof(*h));
-    if (n != (ssize_t)sizeof(*h)) { 
-        perror("read"); 
-        free(h); 
-        return STATUS_ERROR; 
-    }
+    // Convert from network order
+    h->magic    = ntohl(disk_hdr.magic);
+    h->version  = ntohs(disk_hdr.version);
+    h->count    = ntohs(disk_hdr.count);
+    h->filesize = ntohl(disk_hdr.filesize);
 
-    // Validate (already in host order)
+    // Validate
     if (h->magic != HEADER_MAGIC) { 
         free(h); 
         return STATUS_ERROR; 
@@ -118,7 +123,7 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
     }
 
     *headerOut = h;
-    return STATUS_SUCCESS;
+    return STATUS_SUCCESS;  // ← THIS WAS MISSING!
 }
 /**
  * Later tests will likely need these. For now, provide safe stubs so you pass
