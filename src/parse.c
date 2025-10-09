@@ -140,10 +140,10 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
         return STATUS_ERROR; 
     }
 
-    // Ensure filesize is set correctly
-    dbhdr->filesize = sizeof(struct dbheader_t);
+    // DON'T modify filesize - trust what create_db_header set
+    // dbhdr->filesize = sizeof(struct dbheader_t);  // <-- REMOVE THIS
 
-    // Truncate to exact size
+    // Truncate to the filesize that's already in the header
     if (ftruncate(fd, dbhdr->filesize) == -1) { 
         perror("ftruncate"); 
         return STATUS_ERROR; 
@@ -154,7 +154,7 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
         return STATUS_ERROR; 
     }
 
-    // Write in HOST ORDER (matching your hex dump)
+    // Write in HOST ORDER
     ssize_t n = write(fd, dbhdr, sizeof(*dbhdr));
     if (n != (ssize_t)sizeof(*dbhdr)) { 
         perror("write"); 
