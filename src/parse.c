@@ -42,7 +42,7 @@ int create_db_header(struct dbheader_t **headerOut) {
     h->magic    = HEADER_MAGIC;
     h->version  = 1;
     h->count    = 0;
-    h->filesize = (uint32_t)sizeof(struct dbheader_t);
+    h->filesize = sizeof(struct dbheader_t);
 
     *headerOut = h;
     return STATUS_SUCCESS;
