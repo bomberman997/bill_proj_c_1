@@ -67,31 +67,37 @@ if (newfile) {
         printf("Failed to create database header\n"); 
         return -1;
     }
-        // Write the initial header right after creating it
+
+    // Write the initial header right after creating it
     if (output_file(dbfd, dbhdr, NULL) != STATUS_SUCCESS) {
         fprintf(stderr, "Failed to write initial database header\n");
         return -1;
     }
-
 }
-    if (addstring) {
-        dbhdr->count++;
-        struct employee_t *tmp = realloc(employees, dbhdr->count * sizeof(struct employee_t));
-        if (!tmp) {
-            perror("realloc");
-            free(employees);
-            return -1;
-        }
-        employees = tmp;
-        add_employee(dbhdr, employees, addstring);
+if (addstring) {
+    dbhdr->count++;
+    struct employee_t *tmp = realloc(employees, dbhdr->count * sizeof(struct employee_t));
+    if (!tmp) {
+        perror("realloc");
+        free(employees);
+        return -1;
     }
+    employees = tmp;
+    add_employee(dbhdr, employees, addstring);
+    
+    // Write after adding employee
+    if (output_file(dbfd, dbhdr, employees) != STATUS_SUCCESS) {
+        fprintf(stderr, "Failed to write after adding employee\n");
+        return -1;
+    }
+}
+
 
     if (list) {
         list_employees(dbhdr, employees);
     }
 
-    output_file(dbfd, dbhdr, employees);
-    //output_file(dbfd, dbhdr);
+
 
     free(employees);
     free(dbhdr);
