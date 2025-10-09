@@ -136,7 +136,6 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
 
 
 // ... other functions
-
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     if (fd < 0) {
         printf("Got a bad FD from the user\n");
@@ -144,21 +143,22 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     }
 
     int realcount = dbhdr->count;
-
-    // Modify in-place (this is what the reference does!)
-    dbhdr->magic = htonl(dbhdr->magic);
-    dbhdr->filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
-    dbhdr->count = htons(dbhdr->count);
-    dbhdr->version = htons(dbhdr->version);
+    
+    // Create a COPY for disk writing (don't mutate the original!)
+    struct dbheader_t disk_hdr = *dbhdr;
+    disk_hdr.magic = htonl(disk_hdr.magic);
+    disk_hdr.filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
+    disk_hdr.count = htons(disk_hdr.count);
+    disk_hdr.version = htons(disk_hdr.version);
 
     lseek(fd, 0, SEEK_SET);
-
-    write(fd, dbhdr, sizeof(struct dbheader_t));
+    write(fd, &disk_hdr, sizeof(struct dbheader_t));  // Write the COPY
 
     int i = 0;
     for (; i < realcount; i++) {
-        employees[i].hours = htonl(employees[i].hours);
-        write(fd, &employees[i], sizeof(struct employee_t));
+        struct employee_t disk_emp = employees[i];
+        disk_emp.hours = htonl(disk_emp.hours);
+        write(fd, &disk_emp, sizeof(struct employee_t));
     }
 
     return STATUS_SUCCESS;
