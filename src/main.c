@@ -63,10 +63,10 @@ if (newfile) {
         return -1;
     }
 
-    if (create_db_header(&dbhdr) == STATUS_ERROR) {
-        printf("Failed to create database header\n"); 
-        return -1;
-    }
+if (create_db_header(&dbhdr) == STATUS_ERROR) {  // No dbfd parameter
+    printf("Failed to create database header\n"); 
+    return -1;
+}
 
     // Write the initial header right after creating it
     if (output_file(dbfd, dbhdr, NULL) != STATUS_SUCCESS) {
