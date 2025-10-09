@@ -1,11 +1,5 @@
-<<<<<<< HEAD
-=======
-// include/parse.h
-#pragma once
 #include <stdint.h>
 
-// From the assignment description
->>>>>>> 6ab2e3c60c3e117624fb1c010056af71f25ed3ca
 #define HEADER_MAGIC 0x4c4c4144
 #define NAME_LEN 256
 #define ADDRESS_LEN 256
