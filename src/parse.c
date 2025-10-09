@@ -72,29 +72,38 @@ int create_db_header(struct dbheader_t **headerOut)
     return STATUS_SUCCESS;
 }
 
+
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
 
     struct stat st;
     if (fstat(fd, &st) == -1) { perror("fstat"); return STATUS_ERROR; }
+    if ((size_t)st.st_size < sizeof(struct dbheader_t)) return STATUS_ERROR;  // too small
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
-    struct dbheader_t *header = calloc(1, sizeof *header);
-    if (!header) { perror("calloc"); return STATUS_ERROR; }
+    // read raw (network-order) bytes
+    struct dbheader_t raw;
+    ssize_t n = read(fd, &raw, sizeof raw);
+    if (n != (ssize_t)sizeof raw) { perror("read"); return STATUS_ERROR; }
 
-    ssize_t n = read(fd, header, sizeof *header);
-    if (n != (ssize_t)sizeof *header) { perror("read"); free(header); return STATUS_ERROR; }
+    // convert to host order
+    struct dbheader_t *h = calloc(1, sizeof *h);
+    if (!h) { perror("calloc"); return STATUS_ERROR; }
+    h->magic    = ntohl(raw.magic);
+    h->version  = ntohs(raw.version);
+    h->count    = ntohs(raw.count);
+    h->filesize = ntohl(raw.filesize);
 
-    if (header->version != 1) { free(header); return STATUS_ERROR; }
-    if (header->magic   != HEADER_MAGIC) { free(header); return STATUS_ERROR; }
-    if (header->filesize != (uint32_t)st.st_size) { free(header); return STATUS_ERROR; }
+    // now validate using host-order values
+    if (h->version != 1)                         { free(h); return STATUS_ERROR; }
+    if (h->magic   != HEADER_MAGIC)              { free(h); return STATUS_ERROR; }
+    if (h->filesize != (unsigned int)st.st_size) { free(h); return STATUS_ERROR; }
 
-    *headerOut = header;
+    *headerOut = h;
     return STATUS_SUCCESS;
 }
-
 /*
  * Later tests will likely need these. For now, provide safe stubs so you pass
  * compilation for the header test. You can fill these out in the next sections.
