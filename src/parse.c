@@ -113,26 +113,8 @@ int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employe
     return STATUS_SUCCESS;
 }
 
-int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-    (void)employees;
-    if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
 
-    struct dbheader_t out = *dbhdr;
-    out.magic    = htonl(out.magic);
-    out.version  = htons(out.version);
-    out.count    = htons(out.count);
-    out.filesize = htonl(out.filesize);
 
-    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
-
-    ssize_t n = write(fd, &out, sizeof out);
-    if (n != (ssize_t)sizeof out) { perror("write"); return STATUS_ERROR; }
-
-    fsync(fd);
-    return STATUS_SUCCESS;
-}
-
-/* My wrong impl
 int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
     (void)employees; // unused for step 1
 
@@ -159,4 +141,4 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     fsync(fd);
     return STATUS_SUCCESS;
 }
-*/
+
