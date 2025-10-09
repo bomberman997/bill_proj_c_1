@@ -25,80 +25,94 @@ int main(int argc, char *argv[]) {
 
     int dbfd = -1;
     struct dbheader_t *dbhdr = NULL;
-    struct employee_t *employees = NULL;
+#include <stdio.h>
+#include <stdbool.h>
+#include <getopt.h>
+#include <stdlib.h>
 
-    while ((c = getopt(argc, argv, "nf:a:l")) != -1) {
-        switch (c) {
-            case 'n':
-                newfile = true;
-                break;
-            case 'f':
-                filepath = optarg;
-                break;
-            case 'a':
-                addstring = optarg;
-                break;
-            case 'l':
-                list = true;
-                break;
-            case '?':
-                printf("Unknown option -%c\n", c);
-                break;
-            default:
-                return -1;
-        }
-    }
+#include "common.h"
+#include "file.h"
+#include "parse.h"
 
-    if (filepath == NULL) {
-        printf("Filepath is a required argument\n");
-        print_usage(argv);
-        return -1;
-    }
-
-if (newfile) {
-    dbfd = create_db_file(filepath);
-    printf("%s\n","New file call");
-    if (dbfd == STATUS_ERROR) {
-        printf("Unable to create database file\n");
-        return -1;
-    }
-
-if (create_db_header(&dbhdr) == STATUS_ERROR) {  // No dbfd parameter
-    printf("Failed to create database header\n"); 
-    return -1;
+void print_usage(char *argv[]) {
+	printf("Usage: %s -f <filename>\n", argv[0]);
+	printf("\t-n\t - Create a new file\n");
+	
+	return;
 }
 
-    // Write the initial header right after creating it
-    if (output_file(dbfd, dbhdr, NULL) != STATUS_SUCCESS) {
-        fprintf(stderr, "Failed to write initial database header\n");
-        return -1;
-    }
-}
-if (addstring) {
-    dbhdr->count++;
-    struct employee_t *tmp = realloc(employees, dbhdr->count * sizeof(struct employee_t));
-    if (!tmp) {
-        perror("realloc");
-        free(employees);
-        return -1;
-    }
-    employees = tmp;
-    add_employee(dbhdr, employees, addstring);
-    
-    // Write after adding employee
+int main(int argc, char *argv[]) { 
+	bool new_file = false;
+	char *file_path = NULL;
+	int c;
 
-}
+	struct dbheader_t *header = NULL;
+	
+	int dbfd;
 
+	while((c = getopt(argc, argv, "nf:a")) != -1) {
+		switch(c) {
+			case 'n':
+				new_file = true;
+				break;
+			case 'f':
+				file_path = optarg;
+				break;
+			case 'a':
+				printf("Add a new record\n");
+				break;
+			default:
+				return -1;
 
-    if (list) {
-        list_employees(dbhdr, employees);
-    }
+		}
+	}
 
+	if(file_path == NULL) {
+		printf("Database filename has to be provided\n");
+		print_usage(argv);
+		return 0;
+	}
 
+	if(new_file) {
+		dbfd = create_db_file(file_path);
+		if(dbfd == STATUS_ERROR) {
+			printf("Unable to create the database file\n");
+			free(header);
+			return -1;
+		}
 
-    free(employees);
-    free(dbhdr);
-    close(dbfd);
+		//create the header
+		if((create_db_header(dbfd, &header)) == -1) {
+			printf("Unable to create the database header\n");
+			close(dbfd);
+			free(header);
+			return -1;
 
-    return 0;
+		}
+		//write to the new file
+		if((output_file(dbfd, header, NULL)) == -1) {
+			printf("Unable to write the database header\n");
+			close(dbfd);
+			free(header);
+			return -1;
+		}
+		
+	} else {
+		dbfd = open_db_file(file_path);
+		if(dbfd == STATUS_ERROR) {
+			printf("Unable to open the database file\n");
+			free(header);
+			return -1;
+		}
+		
+		if((validate_db_header(dbfd, &header)) == -1) {
+			printf("Unable to validate the db header\n");
+			close(dbfd);
+			free(header);
+			return -1;
+		} else {
+			printf("Database header is Ok!\n");
+			return 0;
+		}
+	}
 }
