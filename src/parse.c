@@ -135,9 +135,10 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
 
-    ssize_t n = write(fd, &out, sizeof(out) );
+    ssize_t n = write(fd, &out, sizeof out );
     if (n != (ssize_t)sizeof out) { perror("write"); return STATUS_ERROR; }
 
     fsync(fd);
     return STATUS_SUCCESS;
 }
+
