@@ -1,4 +1,4 @@
-int v#define HEADER_MAGIC 0x4c4c4144
+#define HEADER_MAGIC 0x4c4c4144
 #define NAME_LEN 256
 #define ADDRESS_LEN 256
 
