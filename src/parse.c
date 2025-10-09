@@ -31,9 +31,10 @@ int list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
  * - version  = 1
  * - count    = 0
  * - filesize = sizeof(struct dbheader_t)
- */
+ 
 int create_db_header(struct dbheader_t **headerOut) {
     if (!headerOut) return STATUS_ERROR;
+
 
     struct dbheader_t *h = calloc(1, sizeof *h);
     if (!h) {
@@ -47,6 +48,23 @@ int create_db_header(struct dbheader_t **headerOut) {
     h->filesize = sizeof(struct dbheader_t);
 
     *headerOut = h;
+    return STATUS_SUCCESS;
+}*/
+
+int create_db_header(int fd, struct dbheader_t **headerOut)
+{
+    struct dbheader_t *header = calloc(1, sizeof(struct dbheader_t));
+    if (header == NULL) {
+        printf("Malloc failed to create db header\n");
+        return STATUS_ERROR;
+    }
+
+    header->version  = 0x1;
+    header->count    = 0;
+    header->magic    = HEADER_MAGIC;
+    header->filesize = sizeof(struct dbheader_t);
+
+    *headerOut = header;
     return STATUS_SUCCESS;
 }
 
