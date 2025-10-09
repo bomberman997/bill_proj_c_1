@@ -92,6 +92,12 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
         return STATUS_ERROR;
     }
 
+    // Make a network-order copy for disk
+    struct dbheader_t out = *dbhdr;
+    out.magic    = htonl(out.magic);
+    out.version  = htons(out.version);
+    out.count    = htons(out.count);
+    out.filesize = htonl(out.filesize);
     // IMPORTANT for Step 1: write fields as-is (host order).
     // If a later step requires network order, convert here with htonl/htons
     // AND convert back with ntohl/ntohs when reading/validating.
