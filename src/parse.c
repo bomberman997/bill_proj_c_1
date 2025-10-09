@@ -118,16 +118,14 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
     (void)employees;
     if (fd < 0 || !dbhdr) { fprintf(stderr, "Bad fd or null header\n"); return STATUS_ERROR; }
 
-    // network-order copy for disk
-    struct dbheader_t out = *dbhdr;
-    out.magic    = htonl(out.magic);
-    out.version  = htons(out.version);
-    out.count    = htons(out.count);
-    out.filesize = htonl(out.filesize);
+    // Ensure filesize matches exactly what will be on disk for this step
+    dbhdr->filesize = (unsigned int)sizeof(struct dbheader_t);
 
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) { perror("lseek"); return STATUS_ERROR; }
-    ssize_t n = write(fd, &out, sizeof out);
-    if (n != (ssize_t)sizeof out) { perror("write"); return STATUS_ERROR; }
+
+    // Write HOST-ORDER struct (no hton*)
+    ssize_t n = write(fd, dbhdr, sizeof *dbhdr);
+    if (n != (ssize_t)sizeof *dbhdr) { perror("write"); return STATUS_ERROR; }
 
     fsync(fd);
     return STATUS_SUCCESS;
