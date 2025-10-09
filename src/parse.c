@@ -70,7 +70,6 @@ int create_db_header(struct dbheader_t **headerOut)
     *headerOut = header;  // Only dereference after we know it's valid
     return STATUS_SUCCESS;
 }
-// In src/parse.c
 int validate_db_header(int fd, struct dbheader_t **headerOut) {
     if (headerOut) *headerOut = NULL;
     if (fd < 0 || !headerOut) return STATUS_ERROR;
@@ -89,26 +88,21 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
         return STATUS_ERROR; 
     }
 
-    struct dbheader_t disk_hdr;
-    ssize_t n = read(fd, &disk_hdr, sizeof(disk_hdr));
-    if (n != (ssize_t)sizeof(disk_hdr)) { 
-        perror("read"); 
-        return STATUS_ERROR; 
-    }
-
-    // Convert from network order to host order
     struct dbheader_t *h = calloc(1, sizeof(*h));
     if (!h) { 
         perror("calloc"); 
         return STATUS_ERROR; 
     }
 
-    h->magic    = ntohl(disk_hdr.magic);
-    h->version  = ntohs(disk_hdr.version);
-    h->count    = ntohs(disk_hdr.count);
-    h->filesize = ntohl(disk_hdr.filesize);
+    // Read directly in host order
+    ssize_t n = read(fd, h, sizeof(*h));
+    if (n != (ssize_t)sizeof(*h)) { 
+        perror("read"); 
+        free(h); 
+        return STATUS_ERROR; 
+    }
 
-    // Validate fields (now in host order)
+    // Validate (already in host order)
     if (h->magic != HEADER_MAGIC) { 
         free(h); 
         return STATUS_ERROR; 
@@ -144,13 +138,6 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
         return STATUS_ERROR; 
     }
 
-    // Create a network-order copy for writing
-    struct dbheader_t disk_hdr;
-    disk_hdr.magic    = htonl(dbhdr->magic);
-    disk_hdr.version  = htons(dbhdr->version);
-    disk_hdr.count    = htons(dbhdr->count);
-    disk_hdr.filesize = htonl(dbhdr->filesize);
-
     // Truncate to the size specified in the header
     if (ftruncate(fd, dbhdr->filesize) == -1) { 
         perror("ftruncate"); 
@@ -162,9 +149,9 @@ int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) 
         return STATUS_ERROR; 
     }
 
-    // Write the network-order copy
-    ssize_t n = write(fd, &disk_hdr, sizeof(disk_hdr));
-    if (n != (ssize_t)sizeof(disk_hdr)) { 
+    // Write in HOST ORDER (no conversion)
+    ssize_t n = write(fd, dbhdr, sizeof(*dbhdr));
+    if (n != (ssize_t)sizeof(*dbhdr)) { 
         perror("write"); 
         return STATUS_ERROR; 
     }
